@@ -10,6 +10,7 @@
 
 #include "stm32f10x_usart.h"
 #include "stm32f10x_dma.h"
+#include "stdlib.h"
 
 /**************************************************************************************************
                                           ЛОКАЛЬНЫЕ МАКРОСЫ
@@ -22,6 +23,13 @@
 
 #define SBUS_PacketSize 25						// размер пакета SBUS протокола
 #define	SBUS_ChannelSize 16						// размер массива значений, заносимых в каналы управления
+
+/**************************************************************************************************
+                                          МАКРОСЫ ДЛЯ РАБОТЫ КОПТЕРА
+**************************************************************************************************/
+#define VALUE_MIN	352
+#define VALUE_MAX	1696	
+#define VALUE_ZERO	1024
 	
 /**************************************************************************************************
                                    ПРОТОТИПЫ ГЛОБАЛЬНЫХ ФУНКЦИЙ
@@ -29,4 +37,7 @@
 void InitSBUSuart(void);
 void SendSBUS(uint8_t* buf, uint32_t len);
 void MakeSBUSmsg(uint8_t* buf, int16_t* channelValues);
+void MakeChannelPacket(int16_t* channelValues);
+void StartStopMotor(int16_t* channelValues);
+void PreparePosMotor(int16_t* channelValues);
 

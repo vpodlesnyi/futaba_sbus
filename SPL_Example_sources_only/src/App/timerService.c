@@ -66,7 +66,7 @@ void SysTick_Handler(void)
 }
 
 /**************************************************************************************************
-Описание:  Инициализация таймера общего назначения
+Описание:  Инициализация таймера общего назначения для отправки пакетов в 14 мс
 Аргументы: Нет
 Возврат:   Нет
 Замечания:
@@ -74,6 +74,27 @@ void SysTick_Handler(void)
 void InitTimer(void)
 {
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
+
+	TIM_TimeBaseInitTypeDef timer;
+	TIM_TimeBaseStructInit(&timer);
+	timer.TIM_Prescaler = PRESCALER;
+	timer.TIM_Period = PERIOD;
+	TIM_TimeBaseInit(TIM4, &timer);
+	
+	TIM_ITConfig(TIM4, TIM_IT_Update, ENABLE);
+	TIM_Cmd(TIM4, ENABLE);
+	NVIC_EnableIRQ(TIM4_IRQn);
+}
+
+/**************************************************************************************************
+Описание:  Инициализация таймера общего назначения для создание пауз в 1 с и в 4 с для запуска двигателей
+Аргументы: Нет
+Возврат:   Нет
+Замечания:
+**************************************************************************************************/
+void InitTimerPause(void)
+{
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
 
 	TIM_TimeBaseInitTypeDef timer;
 	TIM_TimeBaseStructInit(&timer);
@@ -96,6 +117,7 @@ void TIM4_IRQHandler()
 {
 	TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
 	
-	MakeSBUSmsg((uint8_t*)SBUSDataMessage, (int16_t*)SBUSChannelValues);
+	//MakeChannelPacket((int16_t*)SBUSChannelValues);
 	SendSBUS((uint8_t*)SBUSDataMessage, sizeof(SBUSDataMessage) );
 }
+

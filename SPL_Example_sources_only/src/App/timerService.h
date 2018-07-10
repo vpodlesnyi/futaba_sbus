@@ -22,6 +22,7 @@
                                    ПРОТОТИПЫ ГЛОБАЛЬНЫХ ФУНКЦИЙ
 **************************************************************************************************/
 void InitTimer(void);
+void InitTimerPause(void);
 void SysTick_Handler(void);
 void TimingDelay_Decrement(void);
 void Delay(__IO uint32_t nTime);
