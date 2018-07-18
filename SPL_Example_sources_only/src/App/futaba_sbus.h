@@ -15,11 +15,11 @@
 /**************************************************************************************************
                                           ЛОКАЛЬНЫЕ МАКРОСЫ
 **************************************************************************************************/
-#define BAUDRATE	    91000					// скорость последовательного порта
-#define USART			USART1					// выбор uart
+#define BAUDRATE	    100000					// скорость последовательного порта 91408 до 95780. от 94800 до 95600 - 95200
+#define USART			USART2					// выбор uart
 
-#define PIN_RX			GPIO_Pin_10				// пин приема данных по uart
-#define PIN_TX			GPIO_Pin_9				// пин передачи данных по uart
+#define PIN_RX			GPIO_Pin_3				// пин приема данных по uart
+#define PIN_TX			GPIO_Pin_2				// пин передачи данных по uart
 
 #define SBUS_PacketSize 25						// размер пакета SBUS протокола
 #define	SBUS_ChannelSize 16						// размер массива значений, заносимых в каналы управления
@@ -36,8 +36,8 @@
 **************************************************************************************************/
 void InitSBUSuart(void);
 void SendSBUS(uint8_t* buf, uint32_t len);
-void MakeSBUSmsg(uint8_t* buf, int16_t* channelValues);
-void MakeChannelPacket(int16_t* channelValues);
-void StartStopMotor(int16_t* channelValues);
-void PreparePosMotor(int16_t* channelValues);
+void MakeSBUSmsg(uint8_t* buf, uint16_t* channelValues);
+void MakeChannelPacket(uint16_t* channelValues);
+void StartStopMotor(uint16_t* channelValues);
+void PreparePosMotor(uint16_t* channelValues);
 

@@ -69,7 +69,8 @@
                                         ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
 **************************************************************************************************/		
 uint8_t SBUSDataMessage[SBUS_PacketSize];		// пакет SBUS протокола		
-int16_t SBUSChannelValues[SBUS_ChannelSize] = {500,700,900,1020,300,800,600,550,400,350,650,850,930,430,540,1023};	// массива значений, заносимых в каналы управления
+uint16_t SBUSChannelValues[SBUS_ChannelSize]; 	// массива значений, заносимых в каналы управления
+
 /**************************************************************************************************
                                         ГЛОБАЛЬНЫЕ ФУНКЦИИ
 **************************************************************************************************/
@@ -82,11 +83,12 @@ int16_t SBUSChannelValues[SBUS_ChannelSize] = {500,700,900,1020,300,800,600,550,
 **************************************************************************************************/
 void InitSBUSuart(void)
 {
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
 
 	USART_InitTypeDef usart;
 	GPIO_InitTypeDef port;
+	NVIC_InitTypeDef  NVIC_InitStructure;
 	
 	GPIO_StructInit(&port);
 	port.GPIO_Mode = GPIO_Mode_AF_PP;
@@ -101,15 +103,29 @@ void InitSBUSuart(void)
 
 	USART_StructInit(&usart);
 	usart.USART_BaudRate = BAUDRATE;
-	usart.USART_WordLength = USART_WordLength_8b;
+	
+	//------------- Длина посылки 9 бит, так как в ней должен учитываться бит четности
+	// ------------ data 8 + parity 1 = 9 bit
+	usart.USART_WordLength = USART_WordLength_9b;
+	//-------------
+	
 	usart.USART_StopBits = USART_StopBits_2;
 	usart.USART_Parity = USART_Parity_Even;
 	usart.USART_Mode = USART_Mode_Tx;
 	usart.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-	USART_Init(USART1, &usart);
+	USART_Init(USART2, &usart);
 	
-	USART_DMACmd(USART1, USART_DMAReq_Tx, ENABLE);
-	USART_Cmd(USART1, ENABLE);
+	NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+	
+	NVIC_EnableIRQ(USART2_IRQn);
+
+//  	USART_DMACmd(USART2, USART_DMAReq_Tx, ENABLE);
+	USART_Cmd(USART2, ENABLE);
+	 	USART_ITConfig(USART2, USART_IT_TXE, ENABLE);
 }
 
 /**************************************************************************************************
@@ -123,9 +139,9 @@ void SendSBUS(uint8_t* buf, uint32_t len)
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
 	
 	DMA_InitTypeDef DMA_InitStructure;
-	DMA_DeInit(DMA1_Channel4);
+	DMA_DeInit(DMA1_Channel7);
 	
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t) &(USART1->DR);
+	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t) &(USART2->DR);
 	DMA_InitStructure.DMA_BufferSize = len;
 	DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t) buf;
 	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralDST;
@@ -136,9 +152,9 @@ void SendSBUS(uint8_t* buf, uint32_t len)
 	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
 	DMA_InitStructure.DMA_Priority = DMA_Priority_Medium;	
 	DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
-	DMA_Init( DMA1_Channel4, &DMA_InitStructure );
+	DMA_Init( DMA1_Channel7, &DMA_InitStructure );
 
-	DMA_Cmd(DMA1_Channel4, ENABLE);	
+	DMA_Cmd(DMA1_Channel7, ENABLE);	
 }
 
 /**************************************************************************************************
@@ -147,16 +163,21 @@ void SendSBUS(uint8_t* buf, uint32_t len)
 Возврат:   Нет
 Замечания:
 **************************************************************************************************/
-void MakeSBUSmsg(uint8_t* buf, int16_t* channelValues)
+void MakeSBUSmsg(uint8_t* buf, uint16_t* channelValues)
 {
+	for(int i = 0; i < SBUS_PacketSize; i++)
+	{
+		buf[i] = 0;
+	}
+	
 	buf[0] = 0x0F;
 	
 	uint8_t byteInBuffer = 1;
 	uint8_t bitInByte = 0;
 	uint8_t tmpByte = 0;
 	uint8_t channel = 0;
-	uint8_t bitInChannel  = 0;
-	int16_t tmpChannel = 0;
+	uint8_t bitInChannel = 0;
+	uint16_t tmpChannel = 0;
 	
 	while(channel < 16)
 	{
@@ -193,7 +214,7 @@ void MakeSBUSmsg(uint8_t* buf, int16_t* channelValues)
 Возврат:   Нет
 Замечания:
 **************************************************************************************************/
-void MakeChannelPacket(int16_t* channelValues)
+void MakeChannelPacket(uint16_t* channelValues)
 {
 	for(int i = 0; i <= 7; i++)
 	{
@@ -205,49 +226,25 @@ void MakeChannelPacket(int16_t* channelValues)
 	}
 }
 
-/**************************************************************************************************
-Описание:  Тестовая функция формирования массива SBUSChannelValues. Зпускает коптер.
-Аргументы: buf - массив данных пакета, channelValues - массив значений, заносимых в каналы управления
-Возврат:   Нет
-Замечания:
-**************************************************************************************************/
-void StartStopMotor(int16_t* channelValues)
-{
-	channelValues[0] = VALUE_MIN;
 
-	for(int i = 1; i <= 3; i++)
-	{
-		channelValues[i] = VALUE_MAX;
-	}	
-	
-	for(int j = 4; j <= 7; j++)
-	{
-		channelValues[j] = VALUE_MIN;
-	}
-	
-	for(int j = 8; j <= 15; j++)
-	{
-		channelValues[j] = 0;
+uint16_t usartCounter = 0;
+
+void USART2_IRQHandler(void)
+{
+	//Transmission complete interrupt
+	// если буфер передатчика не пуст
+	if(USART_GetITStatus(USART2, USART_IT_TXE) != RESET)
+	{	
+		if (usartCounter < SBUS_PacketSize)
+		{
+			USART_SendData(USART2, SBUSDataMessage[usartCounter]);
+			usartCounter++;
+		}
+		else
+		{
+			usartCounter = 0;
+			USART_ITConfig( USART2, USART_IT_TXE, DISABLE );
+		}
+		//USART_ClearITPendingBit(USART2, USART_IT_TXE);
 	}
 }
-
-/**************************************************************************************************
-Описание:  Тестовая функция формирования массива SBUSChannelValues. Двигатели в состояние подготовки выводит.
-Аргументы: buf - массив данных пакета, channelValues - массив значений, заносимых в каналы управления
-Возврат:   Нет
-Замечания:
-**************************************************************************************************/
-void PreparePosMotor(int16_t* channelValues)
-{
-	for(int i = 0; i <= 7; i++)
-	{
-		channelValues[i] = VALUE_ZERO;
-	}	
-		
-	for(int j = 8; j <= 15; j++)
-	{
-		channelValues[j] = 0;
-	}
-}
-
-

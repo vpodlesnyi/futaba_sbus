@@ -74,37 +74,24 @@ void SysTick_Handler(void)
 void InitTimer(void)
 {
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
-
+	
+	NVIC_InitTypeDef  NVIC_InitStructure;
 	TIM_TimeBaseInitTypeDef timer;
+	
 	TIM_TimeBaseStructInit(&timer);
 	timer.TIM_Prescaler = PRESCALER;
 	timer.TIM_Period = PERIOD;
 	TIM_TimeBaseInit(TIM4, &timer);
 	
-	TIM_ITConfig(TIM4, TIM_IT_Update, ENABLE);
-	TIM_Cmd(TIM4, ENABLE);
-	NVIC_EnableIRQ(TIM4_IRQn);
-}
-
-/**************************************************************************************************
-Описание:  Инициализация таймера общего назначения для создание пауз в 1 с и в 4 с для запуска двигателей
-Аргументы: Нет
-Возврат:   Нет
-Замечания:
-**************************************************************************************************/
-void InitTimerPause(void)
-{
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
-
-	TIM_TimeBaseInitTypeDef timer;
-	TIM_TimeBaseStructInit(&timer);
-	timer.TIM_Prescaler = PRESCALER;
-	timer.TIM_Period = PERIOD;
-	TIM_TimeBaseInit(TIM4, &timer);
+	NVIC_InitStructure.NVIC_IRQChannel = TIM4_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
 	
+	NVIC_EnableIRQ(TIM4_IRQn);
 	TIM_ITConfig(TIM4, TIM_IT_Update, ENABLE);
 	TIM_Cmd(TIM4, ENABLE);
-	NVIC_EnableIRQ(TIM4_IRQn);
 }
 
 /**************************************************************************************************
@@ -113,11 +100,76 @@ void InitTimerPause(void)
 Возврат:   Нет
 Замечания:
 **************************************************************************************************/
+
 void TIM4_IRQHandler()
 {
-	TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
-	
-	//MakeChannelPacket((int16_t*)SBUSChannelValues);
-	SendSBUS((uint8_t*)SBUSDataMessage, sizeof(SBUSDataMessage) );
+ 	TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
+	USART_ITConfig( USART2, USART_IT_TXE, ENABLE );
+// 	SendSBUS(SBUSDataMessage, SBUS_PacketSize);
 }
 
+
+/**************************************************************************************************
+Описание:  Инициализация таймера общего назначения для создание пауз в 1000 мс 
+Аргументы: Нет
+Возврат:   Нет
+Замечания:
+**************************************************************************************************/
+void InitTimerPause(void)
+{
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
+
+	NVIC_InitTypeDef  NVIC_InitStructure;
+	TIM_TimeBaseInitTypeDef timer;
+	
+	TIM_TimeBaseStructInit(&timer);
+	timer.TIM_Prescaler = PRESCALER_PAUSE;
+	timer.TIM_Period = PERIOD_PAUSE;
+	TIM_TimeBaseInit(TIM3, &timer);
+		
+	NVIC_InitStructure.NVIC_IRQChannel = TIM3_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+	
+	NVIC_EnableIRQ(TIM3_IRQn);
+	TIM_ITConfig(TIM3, TIM_IT_Update, ENABLE);
+	TIM_Cmd(TIM3, ENABLE);
+}
+
+/**************************************************************************************************
+Описание:  Обработчик прерываний по таймеру TIM3
+Аргументы: Нет
+Возврат:   Нет
+Замечания:
+**************************************************************************************************/
+int j = VALUE_MIN;
+int flag = 0;
+void TIM3_IRQHandler()
+{
+	TIM_ClearITPendingBit(TIM3, TIM_IT_Update);
+		
+// 	for(int i = 0; i <= 15; i++)
+// 	{
+// 		SBUSChannelValues[i] = VALUE_ZERO;
+// 	}
+	if(flag == 0)
+	{
+		for(int i = 0; i <= 15; i++)
+		{
+			SBUSChannelValues[i] = VALUE_MIN;
+		}
+		flag = 1;
+	}
+	else
+	{
+		for(int i = 0; i <= 15; i++)
+		{
+			SBUSChannelValues[i] = VALUE_MAX;
+		}
+		flag = 0;
+	}
+	
+	MakeSBUSmsg(SBUSDataMessage, SBUSChannelValues);
+}
